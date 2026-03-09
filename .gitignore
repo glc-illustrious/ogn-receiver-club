@@ -1,0 +1,6 @@
+*.tgz
+*.backup-*
+*.log
+*.fifo
+WW15MGH.DAC
+MyReceiver.conf
