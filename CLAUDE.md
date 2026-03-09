@@ -8,7 +8,7 @@ This is a Raspberry Pi 4 (aarch64) running Debian 13 (trixie) configured as an *
 
 ## Remote Access
 
-Tailscale is installed for remote management. The Pi is reachable at `100.70.37.99` (hostname: `pi`) from any device on the tailnet, even behind the club's NAT. SSH in with `ssh pi@100.70.37.99`.
+Tailscale is installed for remote management. The Pi is reachable at `<TAILSCALE_IP>` (hostname: `pi`) from any device on the tailnet, even behind the club's NAT. SSH in with `ssh pi@<TAILSCALE_IP>`.
 
 Useful commands:
 - `tailscale status` — show tailnet peers
