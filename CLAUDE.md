@@ -21,10 +21,12 @@ Useful commands:
 - **Service config**: `/etc/rtlsdr-ogn.conf` — maps ports 50000/50001 to ogn-rf/ogn-decode processes
 - **Init script**: `/etc/init.d/rtlsdr-ogn` — patched for ntpsec (Debian 13 uses ntpsec, not ntp)
 - **Kernel blacklist**: `/etc/modprobe.d/rtl-glidernet-blacklist.conf` — prevents DVB-T drivers from claiming the dongle
-- **Watchdog script**: `/home/pi/scripts/ogn-watchdog.sh` — checks WiFi and OGN processes every 5 min (cron)
+- **Watchdog script**: `/home/pi/scripts/ogn-watchdog.sh` — checks WiFi and OGN processes every minute (cron)
+- **Diagnostics logger**: `/home/pi/scripts/ogn-diagnostics.sh` — logs system health every minute (temp, voltage, throttle, USB, WiFi, OGN)
 - **WiFi helper**: `/home/pi/scripts/add-club-wifi.sh` — add WiFi networks easily
 - **Auto-update script**: `/home/pi/scripts/ogn-update.sh` — weekly OGN binary update (cron, Monday 4am)
 - **Watchdog log**: `/var/log/ogn-watchdog.log` (also used by update script)
+- **Diagnostics log**: `/var/log/ogn-diagnostics.log` — per-minute system health
 - **Logrotate config**: `/etc/logrotate.d/ogn-receiver`
 - **Overlay control**: `/home/pi/scripts/overlay-ctl.sh` — enable/disable read-only SD card protection
 - **Overlay config**: `/etc/overlayroot.conf` — set `overlayroot="tmpfs"` to enable
@@ -69,7 +71,6 @@ cat /var/log/ogn-watchdog.log
    - For Americas/Israel: add `FreqPlan = 2;` in the RF block
 4. **Start the service**: `sudo service rtlsdr-ogn start`
 5. **Register the receiver** on the OGN receiver list at http://wiki.glidernet.org/receiver-naming-convention
-6. **Enable SD card protection**: `/home/pi/scripts/overlay-ctl.sh enable && sudo reboot`
 
 ## Architecture
 
@@ -106,17 +107,20 @@ Four layers of reliability:
 
 1. **Hardware watchdog** (BCM2835): systemd pets the hardware watchdog every 15s. If systemd or the kernel hangs, the Pi auto-reboots. Configured in `/etc/systemd/system.conf` (`RuntimeWatchdogSec=15`, `RebootWatchdogSec=3min`). Takes effect on next boot.
 
-2. **WiFi watchdog** (`/home/pi/scripts/ogn-watchdog.sh`, cron every 5 min): Pings `glidern1.glidernet.org`, reconnects WiFi via NetworkManager if unreachable.
+2. **WiFi watchdog** (`/home/pi/scripts/ogn-watchdog.sh`, cron every minute): Pings `glidern1.glidernet.org`, reconnects WiFi via NetworkManager if unreachable.
 
 3. **Tailscale watchdog** (same script): Checks `tailscale status`, restarts `tailscaled` service if down.
 
 4. **OGN process watchdog** (same script): Checks that ogn-rf and ogn-decode are running, restarts the service if either dies.
 
 Cron entries (pi user):
-- `*/5 * * * * /home/pi/scripts/ogn-watchdog.sh`
+- `* * * * * /home/pi/scripts/ogn-watchdog.sh`
+- `* * * * * /home/pi/scripts/ogn-diagnostics.sh`
 - `0 4 * * 1 /home/pi/scripts/ogn-update.sh`
 
-**Log rotation**: Handled by logrotate (`/etc/logrotate.d/ogn-receiver`). Rotates weekly, keeps 4 weeks compressed. Covers `/var/log/ogn-watchdog.log` and OGN procserv logs in `/var/log/rtlsdr-ogn/`.
+**Diagnostics** (`ogn-diagnostics.sh`): Logs every minute to `/var/log/ogn-diagnostics.log`. Each line records: CPU temp, core voltage, throttle flags (undervoltage/thermal), CPU load, free memory, WiFi signal strength, USB dongle presence, OGN process status, and APRS traffic count. Key for diagnosing dropouts on battery power — look for `UNDERVOLT` or `usb_rtl=0` entries.
+
+**Log rotation**: Handled by logrotate (`/etc/logrotate.d/ogn-receiver`). Rotates weekly, keeps 4 weeks compressed. Covers `/var/log/ogn-watchdog.log`, `/var/log/ogn-diagnostics.log`, and OGN procserv logs in `/var/log/rtlsdr-ogn/`.
 
 **Auto-update** (`ogn-update.sh`): Runs weekly Monday 4am. Downloads the latest RPI-GPU binary from `download.glidernet.org`, compares against installed version, and updates if changed. Creates a timestamped backup (`/home/pi/rtlsdr-ogn.backup-YYYYMMDD`) before updating. Automatically rolls back if the service fails to start after update. Preserves `MyReceiver.conf`, `ogn-rf.fifo`, and `WW15MGH.DAC`.
 
