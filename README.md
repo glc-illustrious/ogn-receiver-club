@@ -9,8 +9,8 @@ Receives FLARM/OGN/FANET/PilotAware signals via an RTL-SDR USB dongle and forwar
 On a fresh Raspberry Pi OS (Debian 13 / trixie):
 
 ```bash
-git clone https://github.com/YOUR_ORG/ogn-receiver.git
-cd ogn-receiver
+git clone https://github.com/glc-illustrious/ogn-receiver-club.git
+cd ogn-receiver-club
 ./install.sh
 sudo reboot
 ```
