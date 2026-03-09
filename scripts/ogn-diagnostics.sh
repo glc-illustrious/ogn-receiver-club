@@ -67,4 +67,4 @@ if [ "$THROTTLE" != "0x0" ] && [ -n "$THROTTLE" ]; then
 fi
 
 # Format: one line per minute, easy to grep/parse
-echo "$TIMESTAMP | up=${UPTIME}s temp=${TEMP}C volt=${VOLT}V throttle=$THROTTLE load=$LOAD mem=${MEM_AVAIL}MB | wifi=${WIFI_SSID:-NONE}(${WIFI_SIGNAL:-?}dBm) usb_rtl=$USB_RTL | rf=$OGN_RF_STATUS dec=$OGN_DEC_STATUS aprs=$APRS_LINES | ${WARNINGS:-OK}" >> "$LOG"
+echo "$TIMESTAMP | up=${UPTIME}s temp=${TEMP}C vcore=${VOLT}V throttle=$THROTTLE load=$LOAD mem=${MEM_AVAIL}MB | wifi=${WIFI_SSID:-NONE}(${WIFI_SIGNAL:-?}dBm) usb_rtl=$USB_RTL | rf=$OGN_RF_STATUS dec=$OGN_DEC_STATUS aprs=$APRS_LINES | ${WARNINGS:-OK}" >> "$LOG"
