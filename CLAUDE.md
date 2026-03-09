@@ -28,8 +28,6 @@ Useful commands:
 - **Watchdog log**: `/var/log/ogn-watchdog.log` (also used by update script)
 - **Diagnostics log**: `/var/log/ogn-diagnostics.log` — per-minute system health
 - **Logrotate config**: `/etc/logrotate.d/ogn-receiver`
-- **Overlay control**: `/home/pi/scripts/overlay-ctl.sh` — enable/disable read-only SD card protection
-- **Overlay config**: `/etc/overlayroot.conf` — set `overlayroot="tmpfs"` to enable
 
 ## Common Commands
 
@@ -123,30 +121,6 @@ Cron entries (pi user):
 **Log rotation**: Handled by logrotate (`/etc/logrotate.d/ogn-receiver`). Rotates weekly, keeps 4 weeks compressed. Covers `/var/log/ogn-watchdog.log`, `/var/log/ogn-diagnostics.log`, and OGN procserv logs in `/var/log/rtlsdr-ogn/`.
 
 **Auto-update** (`ogn-update.sh`): Runs weekly Monday 4am. Downloads the latest RPI-GPU binary from `download.glidernet.org`, compares against installed version, and updates if changed. Creates a timestamped backup (`/home/pi/rtlsdr-ogn.backup-YYYYMMDD`) before updating. Automatically rolls back if the service fails to start after update. Preserves `MyReceiver.conf`, `ogn-rf.fifo`, and `WW15MGH.DAC`.
-
-## SD Card Protection (Overlay Filesystem)
-
-The `overlayroot` package provides a read-only root filesystem with a RAM-based overlay. All writes go to RAM and are discarded on reboot — the SD card is never written to, preventing corruption from power loss and reducing wear.
-
-```bash
-# Check current status
-/home/pi/scripts/overlay-ctl.sh status
-
-# Enable read-only mode (reboot required)
-/home/pi/scripts/overlay-ctl.sh enable
-sudo reboot
-
-# To make persistent changes (e.g. config edits), disable overlay first
-/home/pi/scripts/overlay-ctl.sh disable
-sudo reboot
-# ... make changes ...
-/home/pi/scripts/overlay-ctl.sh enable
-sudo reboot
-```
-
-When overlay is active, the real (read-only) root is mounted at `/media/root-ro`. The auto-update script handles the overlay automatically — it writes to the real root and reboots to apply changes.
-
-**Important**: Do NOT enable the overlay until initial setup at the club is complete (dongle calibration, config, WiFi).
 
 ## WiFi Configuration
 

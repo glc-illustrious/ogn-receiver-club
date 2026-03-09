@@ -9,7 +9,6 @@ LOG="/var/log/ogn-watchdog.log"
 OGN_DIR="/home/pi/rtlsdr-ogn"
 TGZ_URL="http://download.glidernet.org/rpi-gpu/rtlsdr-ogn-bin-RPI-GPU-latest.tgz"
 TMP_DIR=$(mktemp -d)
-OVERLAY_ACTIVE=false
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [update] $1" | sudo tee -a "$LOG" > /dev/null
@@ -17,18 +16,8 @@ log() {
 
 cleanup() {
     rm -rf "$TMP_DIR"
-    # Re-enable overlay if we disabled it
-    if [ "$OVERLAY_ACTIVE" = true ]; then
-        sudo sed -i 's/^overlayroot=.*/overlayroot="tmpfs"/' /etc/overlayroot.conf
-    fi
 }
 trap cleanup EXIT
-
-# If overlay is active, we need to write to the real root
-if mount | grep -q "overlayroot"; then
-    OVERLAY_ACTIVE=true
-    OGN_DIR="/media/root-ro/home/pi/rtlsdr-ogn"
-fi
 
 # Download latest
 if ! wget -q "$TGZ_URL" -O "$TMP_DIR/latest.tgz"; then
@@ -51,13 +40,8 @@ log "INFO: New OGN binary found, updating..."
 sudo service rtlsdr-ogn stop
 sleep 2
 
-# If overlay is active, remount the real root read-write
-if [ "$OVERLAY_ACTIVE" = true ]; then
-    sudo mount -o remount,rw /media/root-ro
-fi
-
 # Backup current install
-BACKUP="${OGN_DIR}.backup-$(date +%Y%m%d)"
+BACKUP="/home/pi/rtlsdr-ogn.backup-$(date +%Y%m%d)"
 cp -a "$OGN_DIR" "$BACKUP"
 
 # Copy new binaries (preserve config, fifo, and geoid data)
@@ -92,12 +76,4 @@ else
     sudo chmod a+s "$OGN_DIR/gsm_scan" "$OGN_DIR/ogn-rf"
     sudo service rtlsdr-ogn start
     log "INFO: Rolled back to previous version"
-fi
-
-# If overlay is active, remount real root back to read-only and reboot
-# so the overlay picks up the new binaries
-if [ "$OVERLAY_ACTIVE" = true ]; then
-    sudo mount -o remount,ro /media/root-ro
-    log "INFO: Rebooting to apply update under overlay"
-    sudo reboot
 fi

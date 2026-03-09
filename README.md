@@ -29,9 +29,6 @@ nano ~/rtlsdr-ogn/MyReceiver.conf
 
 # Start the receiver
 sudo service rtlsdr-ogn start
-
-# Lock down the SD card for unattended operation
-~/scripts/overlay-ctl.sh enable && sudo reboot
 ```
 
 ## What's Included
@@ -39,10 +36,10 @@ sudo service rtlsdr-ogn start
 | Component | Description |
 |---|---|
 | `install.sh` | One-command installer for a fresh Pi |
-| `scripts/ogn-watchdog.sh` | Monitors WiFi, Tailscale, and OGN processes (cron, every 5 min) |
+| `scripts/ogn-watchdog.sh` | Monitors WiFi, Tailscale, and OGN processes (cron, every minute) |
+| `scripts/ogn-diagnostics.sh` | Logs system health every minute (temp, voltage, throttle, USB, WiFi) |
 | `scripts/ogn-update.sh` | Auto-updates OGN binaries with rollback (cron, weekly) |
 | `scripts/add-club-wifi.sh` | Helper to add WiFi networks |
-| `scripts/overlay-ctl.sh` | Enable/disable read-only SD card protection |
 | `configs/` | Template configs for the receiver, kernel blacklist, and logrotate |
 
 ## Reliability Features
@@ -51,7 +48,7 @@ sudo service rtlsdr-ogn start
 - **Process watchdog**: Restarts OGN receiver if ogn-rf or ogn-decode dies
 - **WiFi watchdog**: Reconnects WiFi if connectivity is lost
 - **Tailscale watchdog**: Restarts Tailscale for remote access
-- **Read-only SD card**: Overlay filesystem prevents corruption from power loss
+- **Diagnostics logger**: Per-minute logging of voltage, temperature, USB, and throttle flags
 - **Auto-update**: Weekly binary updates with automatic rollback on failure
 
 ## Debian 13 (Trixie) Notes

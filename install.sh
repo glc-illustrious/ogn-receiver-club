@@ -26,7 +26,7 @@ fi
 echo "--- Installing packages ---"
 sudo apt-get update -q
 sudo apt-get -y install rtl-sdr libconfig11 libjpeg-dev libfftw3-dev \
-    lynx procserv telnet ntpsec overlayroot gh
+    lynx procserv telnet ntpsec gh
 
 echo ""
 echo "--- Blacklisting DVB-T kernel modules ---"
@@ -90,7 +90,7 @@ sudo sed -i 's/^#RebootWatchdogSec=10min/RebootWatchdogSec=3min/' /etc/systemd/s
 
 echo ""
 echo "--- Setting up cron jobs ---"
-(crontab -l 2>/dev/null | grep -v ogn; echo "*/5 * * * * /home/pi/scripts/ogn-watchdog.sh"; echo "0 4 * * 1 /home/pi/scripts/ogn-update.sh") | sort -u | crontab -
+(crontab -l 2>/dev/null | grep -v ogn; echo "* * * * * /home/pi/scripts/ogn-watchdog.sh"; echo "* * * * * /home/pi/scripts/ogn-diagnostics.sh"; echo "0 4 * * 1 /home/pi/scripts/ogn-update.sh") | sort -u | crontab -
 
 echo ""
 echo "--- Setting WiFi regulatory domain to NL ---"
@@ -108,6 +108,5 @@ echo "  3. Calibrate: cd ~/rtlsdr-ogn && ./gsm_scan --ppm 50 --gain 20"
 echo "  4. Edit config: nano ~/rtlsdr-ogn/MyReceiver.conf"
 echo "  5. Add club WiFi: ~/scripts/add-club-wifi.sh \"SSID\" \"password\""
 echo "  6. Start service: sudo service rtlsdr-ogn start"
-echo "  7. Enable SD card protection: ~/scripts/overlay-ctl.sh enable && sudo reboot"
 echo ""
 echo "See CLAUDE.md for full documentation."
