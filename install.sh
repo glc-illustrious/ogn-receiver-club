@@ -35,9 +35,14 @@ sudo cp "$SCRIPT_DIR/configs/rtl-glidernet-blacklist.conf" /etc/modprobe.d/rtl-g
 echo ""
 echo "--- Downloading OGN receiver binary ---"
 cd /home/pi
-wget -q http://download.glidernet.org/rpi-gpu/rtlsdr-ogn-bin-RPI-GPU-latest.tgz
-tar xzf rtlsdr-ogn-bin-RPI-GPU-latest.tgz
-rm rtlsdr-ogn-bin-RPI-GPU-latest.tgz
+ARCH=$(dpkg --print-architecture)
+if [ "$ARCH" = "arm64" ]; then
+    wget -q http://download.glidernet.org/arm64/rtlsdr-ogn-bin-arm64-latest.tgz -O rtlsdr-ogn-bin-latest.tgz
+else
+    wget -q http://download.glidernet.org/rpi-gpu/rtlsdr-ogn-bin-RPI-GPU-latest.tgz -O rtlsdr-ogn-bin-latest.tgz
+fi
+tar xzf rtlsdr-ogn-bin-latest.tgz
+rm rtlsdr-ogn-bin-latest.tgz
 
 echo ""
 echo "--- Setting up OGN receiver ---"
@@ -78,6 +83,11 @@ echo "--- Installing scripts ---"
 mkdir -p /home/pi/scripts
 cp "$SCRIPT_DIR/scripts/"*.sh /home/pi/scripts/
 chmod +x /home/pi/scripts/*.sh
+
+echo ""
+echo "--- Creating log directory ---"
+sudo mkdir -p /var/log/rtlsdr-ogn
+sudo chown pi:pi /var/log/rtlsdr-ogn
 
 echo ""
 echo "--- Setting up logrotate ---"

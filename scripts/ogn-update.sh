@@ -7,7 +7,12 @@ set -e
 
 LOG="/var/log/ogn-watchdog.log"
 OGN_DIR="/home/pi/rtlsdr-ogn"
-TGZ_URL="http://download.glidernet.org/rpi-gpu/rtlsdr-ogn-bin-RPI-GPU-latest.tgz"
+ARCH=$(dpkg --print-architecture)
+if [ "$ARCH" = "arm64" ]; then
+    TGZ_URL="http://download.glidernet.org/arm64/rtlsdr-ogn-bin-arm64-latest.tgz"
+else
+    TGZ_URL="http://download.glidernet.org/rpi-gpu/rtlsdr-ogn-bin-RPI-GPU-latest.tgz"
+fi
 TMP_DIR=$(mktemp -d)
 
 log() {
@@ -25,11 +30,16 @@ if ! wget -q "$TGZ_URL" -O "$TMP_DIR/latest.tgz"; then
     exit 1
 fi
 
-# Extract to temp
+# Extract to temp — find the extracted directory name
 tar xzf "$TMP_DIR/latest.tgz" -C "$TMP_DIR"
+EXTRACT_DIR=$(find "$TMP_DIR" -maxdepth 1 -type d -name 'rtlsdr-ogn*' | head -1)
+if [ -z "$EXTRACT_DIR" ]; then
+    log "ERROR: Could not find extracted OGN directory"
+    exit 1
+fi
 
 # Compare ogn-decode binary (if identical, no update needed)
-if cmp -s "$TMP_DIR/rtlsdr-ogn/ogn-decode" "$OGN_DIR/ogn-decode"; then
+if cmp -s "$EXTRACT_DIR/ogn-decode" "$OGN_DIR/ogn-decode"; then
     log "OK: OGN binary is already up to date"
     exit 0
 fi
@@ -46,13 +56,13 @@ cp -a "$OGN_DIR" "$BACKUP"
 
 # Copy new binaries (preserve config, fifo, and geoid data)
 for f in ogn-rf ogn-decode gsm_scan; do
-    cp "$TMP_DIR/rtlsdr-ogn/$f" "$OGN_DIR/$f"
+    cp "$EXTRACT_DIR/$f" "$OGN_DIR/$f"
 done
 
 # Copy other updated files (not config)
 for f in Changelog INSTALL Template.conf rtlsdr-ogn; do
-    if [ -f "$TMP_DIR/rtlsdr-ogn/$f" ]; then
-        cp "$TMP_DIR/rtlsdr-ogn/$f" "$OGN_DIR/$f"
+    if [ -f "$EXTRACT_DIR/$f" ]; then
+        cp "$EXTRACT_DIR/$f" "$OGN_DIR/$f"
     fi
 done
 
