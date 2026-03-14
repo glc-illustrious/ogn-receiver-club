@@ -28,6 +28,25 @@ sudo apt-get update -q
 sudo apt-get -y install rtl-sdr libconfig11 libjpeg-dev libfftw3-dev \
     lynx procserv telnet ntpsec gh
 
+# OGN binaries are compiled against libjpeg8 — build from source if not available
+if ! /sbin/ldconfig -p | grep -q "libjpeg.so.8"; then
+    echo "--- Building libjpeg8 from source (OGN binary dependency) ---"
+    sudo apt-get -y install build-essential autotools-dev
+    JPEG_TMP=$(mktemp -d)
+    cd "$JPEG_TMP"
+    wget -qO- http://www.ijg.org/files/jpegsrc.v8d.tar.gz | tar -xz
+    cd jpeg-8d
+    # Update config.sub/config.guess for aarch64 support
+    cp /usr/share/misc/config.sub .
+    cp /usr/share/misc/config.guess .
+    ./configure --libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH) --build=$(dpkg-architecture -qDEB_HOST_GNU_TYPE)
+    make -j"$(nproc)"
+    sudo make install
+    sudo ldconfig
+    cd /home/pi
+    rm -rf "$JPEG_TMP"
+fi
+
 echo ""
 echo "--- Blacklisting DVB-T kernel modules ---"
 sudo cp "$SCRIPT_DIR/configs/rtl-glidernet-blacklist.conf" /etc/modprobe.d/rtl-glidernet-blacklist.conf
@@ -101,6 +120,17 @@ sudo sed -i 's/^#RebootWatchdogSec=10min/RebootWatchdogSec=3min/' /etc/systemd/s
 echo ""
 echo "--- Setting up cron jobs ---"
 (crontab -l 2>/dev/null | grep -v ogn; echo "* * * * * /home/pi/scripts/ogn-watchdog.sh"; echo "* * * * * /home/pi/scripts/ogn-diagnostics.sh"; echo "0 4 * * 1 /home/pi/scripts/ogn-update.sh") | sort -u | crontab -
+
+echo ""
+echo "--- Setting GPU memory to 64MB (frees RAM for receiver) ---"
+BOOT_CONFIG="/boot/firmware/config.txt"
+if [ -f "$BOOT_CONFIG" ]; then
+    if grep -q "^gpu_mem=" "$BOOT_CONFIG"; then
+        sudo sed -i 's/^gpu_mem=.*/gpu_mem=64/' "$BOOT_CONFIG"
+    else
+        echo "gpu_mem=64" | sudo tee -a "$BOOT_CONFIG" > /dev/null
+    fi
+fi
 
 echo ""
 echo "--- Setting WiFi regulatory domain to NL ---"

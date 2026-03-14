@@ -1,9 +1,12 @@
 
 RF:
-{ 
+{
   FreqCorr = +50;          # [ppm] big black/blue R820T(2) sticks have 40-80ppm correction factors, measure it with gsm_scan
                            # sticks with TCXO: silver/orange have near zero frequency correction and you can ommit this parameter
   SampleRate = 2.0;        # [MHz] 1.0 or 2.0MHz, a bit more CPU is needed to run 2MHz but if you want to capture PilotAware you need it
+
+  # Device = 0;            # [index] USB device index, useful when multiple RTL-SDR dongles are connected
+  # DeviceSerial = "0";    # [serial] select dongle by serial number instead of index (use rtl_test to find it)
 
                            # You can ommit the whole GSM section for sticks with TCXO
   GSM:                     # for frequency calibration based on GSM signals
@@ -16,6 +19,7 @@ RF:
     Gain       =  50.0;    # [dB]  Normally use full gain, unless intermodulation occurs of you run with an LNA, then you need to find best value
   } ;
 
+  # FreqPlan = 1;          # 1 = Europe (868.8 MHz, default), 2 = Americas/Israel (915 MHz)
 } ;
 
 Demodulator:             # this section can be ommited as the defaults are reasonable

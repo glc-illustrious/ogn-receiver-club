@@ -32,9 +32,9 @@ LOAD=$(awk '{print $1}' /proc/loadavg)
 # Memory
 MEM_AVAIL=$(awk '/MemAvailable/ {printf "%.0f", $2/1024}' /proc/meminfo)
 
-# WiFi signal strength
-WIFI_SIGNAL=$(iwconfig wlan0 2>/dev/null | grep -oP 'Signal level=\K-?[0-9]+')
-WIFI_SSID=$(iwconfig wlan0 2>/dev/null | grep -oP 'ESSID:"\K[^"]+')
+# WiFi signal strength (nmcli — iwconfig is not available on Debian 13)
+WIFI_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes:' | cut -d: -f2)
+WIFI_SIGNAL=$(nmcli -t -f active,signal dev wifi 2>/dev/null | grep '^yes:' | cut -d: -f2)
 
 # USB devices (detect if RTL-SDR dongle disappeared)
 USB_RTL=$(lsusb 2>/dev/null | grep -c -i "RTL2832\|RTL28\|0bda:2838\|0bda:2832")
@@ -47,24 +47,38 @@ OGN_DEC_STATUS="DEAD"
 [ -n "$OGN_RF_PID" ] && OGN_RF_STATUS="ok($OGN_RF_PID)"
 [ -n "$OGN_DEC_PID" ] && OGN_DEC_STATUS="ok($OGN_DEC_PID)"
 
-# OGN decode traffic — count APRS lines in last 60s from procserv log
+# OGN decode traffic — count new APRS lines since last check
 APRS_LOG="/var/log/rtlsdr-ogn/50001"
+APRS_STATE="/tmp/ogn-diag-aprs-lastcount"
 APRS_LINES=0
 if [ -f "$APRS_LOG" ]; then
-    APRS_LINES=$(find "$APRS_LOG" -mmin -1 -exec wc -l {} \; 2>/dev/null | awk '{print $1}')
-    [ -z "$APRS_LINES" ] && APRS_LINES=0
+    CURRENT_COUNT=$(wc -l < "$APRS_LOG" 2>/dev/null || echo 0)
+    PREV_COUNT=0
+    [ -f "$APRS_STATE" ] && PREV_COUNT=$(cat "$APRS_STATE" 2>/dev/null || echo 0)
+    if [ "$CURRENT_COUNT" -ge "$PREV_COUNT" ] 2>/dev/null; then
+        APRS_LINES=$((CURRENT_COUNT - PREV_COUNT))
+    else
+        # Log was rotated/truncated — count from zero
+        APRS_LINES=$CURRENT_COUNT
+    fi
+    echo "$CURRENT_COUNT" > "$APRS_STATE"
 fi
 
 # Decode throttle flags into human-readable warnings
 WARNINGS=""
 if [ "$THROTTLE" != "0x0" ] && [ -n "$THROTTLE" ]; then
     THROT_DEC=$((THROTTLE))
+    # Current flags (bits 0-3)
     [ $((THROT_DEC & 0x1)) -ne 0 ] && WARNINGS="${WARNINGS}UNDERVOLT "
     [ $((THROT_DEC & 0x2)) -ne 0 ] && WARNINGS="${WARNINGS}FREQ_CAP "
     [ $((THROT_DEC & 0x4)) -ne 0 ] && WARNINGS="${WARNINGS}THROTTLED "
     [ $((THROT_DEC & 0x8)) -ne 0 ] && WARNINGS="${WARNINGS}TEMP_LIMIT "
-    [ $((THROT_DEC & 0x50000)) -ne 0 ] && WARNINGS="${WARNINGS}PREV_UNDERVOLT "
+    # Historical flags since boot (bits 16-19)
+    [ $((THROT_DEC & 0x10000)) -ne 0 ] && WARNINGS="${WARNINGS}PREV_UNDERVOLT "
+    [ $((THROT_DEC & 0x20000)) -ne 0 ] && WARNINGS="${WARNINGS}PREV_FREQ_CAP "
+    [ $((THROT_DEC & 0x40000)) -ne 0 ] && WARNINGS="${WARNINGS}PREV_THROTTLED "
+    [ $((THROT_DEC & 0x80000)) -ne 0 ] && WARNINGS="${WARNINGS}PREV_TEMP_LIMIT "
 fi
 
 # Format: one line per minute, easy to grep/parse
-echo "$TIMESTAMP | up=${UPTIME}s temp=${TEMP}C vcore=${VOLT}V throttle=$THROTTLE load=$LOAD mem=${MEM_AVAIL}MB | wifi=${WIFI_SSID:-NONE}(${WIFI_SIGNAL:-?}dBm) usb_rtl=$USB_RTL | rf=$OGN_RF_STATUS dec=$OGN_DEC_STATUS aprs=$APRS_LINES | ${WARNINGS:-OK}" >> "$LOG"
+echo "$TIMESTAMP | up=${UPTIME}s temp=${TEMP}C vcore=${VOLT}V throttle=$THROTTLE load=$LOAD mem=${MEM_AVAIL}MB | wifi=${WIFI_SSID:-NONE}(${WIFI_SIGNAL:-?}%) usb_rtl=$USB_RTL | rf=$OGN_RF_STATUS dec=$OGN_DEC_STATUS aprs=$APRS_LINES | ${WARNINGS:-OK}" >> "$LOG"
