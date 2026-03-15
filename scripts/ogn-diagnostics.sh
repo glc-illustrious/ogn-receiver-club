@@ -47,21 +47,13 @@ OGN_DEC_STATUS="DEAD"
 [ -n "$OGN_RF_PID" ] && OGN_RF_STATUS="ok($OGN_RF_PID)"
 [ -n "$OGN_DEC_PID" ] && OGN_DEC_STATUS="ok($OGN_DEC_PID)"
 
-# OGN decode traffic — count new APRS lines since last check
-APRS_LOG="/var/log/rtlsdr-ogn/50001"
-APRS_STATE="/tmp/ogn-diag-aprs-lastcount"
+# OGN decode traffic — sample decoded packets from ogn-decode telnet output
+# The procserv log file is not populated, so we read directly from the telnet
+# interface. Lines with 'dB/' are decoded OGN/FLARM packets.
 APRS_LINES=0
-if [ -f "$APRS_LOG" ]; then
-    CURRENT_COUNT=$(wc -l < "$APRS_LOG" 2>/dev/null || echo 0)
-    PREV_COUNT=0
-    [ -f "$APRS_STATE" ] && PREV_COUNT=$(cat "$APRS_STATE" 2>/dev/null || echo 0)
-    if [ "$CURRENT_COUNT" -ge "$PREV_COUNT" ] 2>/dev/null; then
-        APRS_LINES=$((CURRENT_COUNT - PREV_COUNT))
-    else
-        # Log was rotated/truncated — count from zero
-        APRS_LINES=$CURRENT_COUNT
-    fi
-    echo "$CURRENT_COUNT" > "$APRS_STATE"
+if [ -n "$OGN_DEC_PID" ]; then
+    APRS_LINES=$(timeout 3 sh -c '(sleep 2; printf "quit\r\n") | telnet localhost 50001 2>/dev/null' | grep -c 'dB/' 2>/dev/null || true)
+    [ -z "$APRS_LINES" ] && APRS_LINES=0
 fi
 
 # Decode throttle flags into human-readable warnings
