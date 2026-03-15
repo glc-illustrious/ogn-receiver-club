@@ -76,26 +76,38 @@ fi
 # Check OGN data pipeline health
 # Both processes can be running while the data pipeline between them is broken
 # (e.g. ogn-decode crashes and reconnects but can't read from ogn-rf).
-# Detect this by checking for sustained zero decoded packets.
+# Detect this by checking the HTTP status page for APRS connection state.
 PIPELINE_STATE="/tmp/ogn-watchdog-pipeline"
-PIPELINE_MAX_FAILURES=10  # minutes without traffic before restart
+PIPELINE_MAX_FAILURES=30  # minutes without APRS connection before restart
 
-# Sample decoded packets from ogn-decode (2-second window)
-PACKET_COUNT=$(timeout 3 sh -c '(sleep 2; printf "quit\r\n") | telnet localhost 50001 2>/dev/null' | grep -c 'dB/' 2>/dev/null || true)
-[ -z "$PACKET_COUNT" ] && PACKET_COUNT=0
+# Skip pipeline check if ogn-decode was started less than 15 minutes ago
+# (needs time for GSM calibration and APRS login)
+OGN_DEC_PID=$(pgrep -x "ogn-decode" || true)
+if [ -n "$OGN_DEC_PID" ]; then
+    PROC_AGE=$(ps -o etimes= -p "$OGN_DEC_PID" 2>/dev/null | tr -d ' ')
+    [ -z "$PROC_AGE" ] && PROC_AGE=0
+    if [ "$PROC_AGE" -lt 900 ] 2>/dev/null; then
+        echo "0" > "$PIPELINE_STATE"
+        exit 0
+    fi
+fi
 
-if [ "$PACKET_COUNT" -eq 0 ] 2>/dev/null; then
+# Check APRS connection via HTTP status page (more reliable than telnet scraping)
+APRS_OK=$(timeout 3 curl -s http://localhost:8081/ 2>/dev/null | grep -c 'connected to' || true)
+[ -z "$APRS_OK" ] && APRS_OK=0
+
+if [ "$APRS_OK" -eq 0 ] 2>/dev/null; then
     FAIL_COUNT=0
     [ -f "$PIPELINE_STATE" ] && FAIL_COUNT=$(cat "$PIPELINE_STATE" 2>/dev/null || echo 0)
     FAIL_COUNT=$((FAIL_COUNT + 1))
     echo "$FAIL_COUNT" > "$PIPELINE_STATE"
 
     if [ "$FAIL_COUNT" -ge "$PIPELINE_MAX_FAILURES" ]; then
-        log "WARN: No decoded packets for ${FAIL_COUNT} minutes, force-restarting OGN service"
+        log "WARN: APRS not connected for ${FAIL_COUNT} minutes, force-restarting OGN service"
         echo "0" > "$PIPELINE_STATE"
         ogn_force_restart
     fi
 else
-    # Traffic is flowing, reset counter
+    # APRS connected, reset counter
     echo "0" > "$PIPELINE_STATE"
 fi
